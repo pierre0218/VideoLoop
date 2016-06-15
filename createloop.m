@@ -1,102 +1,87 @@
 clear all;
 
-%% Initial Setting 
-v = VideoReader('palmtrees.mp4');
-totalFrames = floor(v.Duration * v.FrameRate);
-%% Parameter
-jump = 4; threshold = 10;%10/255;
+ load('palmtrees.mat')
+% %% Initial Setting 
+ v = VideoReader('palmtrees.mp4');
+ totalFrames = floor(v.Duration * v.FrameRate);
+% %% Parameter
+jump = 4;
 ratio = 1/2;
 
-%% DownSample classifier
+loopableI = find(labelsmooth == 2);
 
-minR = [];
-minG = [];
-minB = [];
+% % create loop
+% % candidate periods are 8 ~ 30 frames
 
-maxR = [];
-maxG = [];
-maxB = [];
+downSampledFrames = floor(totalFrames/jump);
+p_candidates = 30:-1:10;
 
-f = imresize(read(v,1), ratio);
-imgSize = size(f);
-minR = f(:,:,1);
-minG = f(:,:,2);
-minB = f(:,:,3);
+timer = tic;
 
-maxR = f(:,:,1);
-maxG = f(:,:,2);
-maxB = f(:,:,3);
-
-risesR = [];
-risesG = [];
-risesB = [];
-
-fallsR = [];
-fallsG = [];
-fallsB = [];
-
-for i=2:jump:totalFrames
-    f = imresize(read(v,i), ratio);
-    fR = f(:,:,1);
-    fG = f(:,:,2);
-    fB = f(:,:,3);
+minError = 1000;
+minP = 1;
+minS = 1;
+errors = [];
+for i=1:length(p_candidates)
+    p = p_candidates(i);
+    for s=2:downSampledFrames-p
+        frame_s = rgb2gray(imresize(read(v,s), ratio));
+        frame_p = rgb2gray(imresize(read(v,s+p), ratio));
+        
+        diff1 = abs(frame_p(loopableI)-frame_s(loopableI));
+        
+        frame_s = rgb2gray(imresize(read(v,s-1), ratio));
+        frame_p = rgb2gray(imresize(read(v,s+p-1), ratio));
+        
+        diff2 = abs(frame_p(loopableI)-frame_s(loopableI));
+        
+        diff = sort(diff1+diff2);
+        error = prctile(diff,90);
+        
+        if error < minError
+            minError = error;
+            minP = p;
+            minS = s;
+        end
+    end
+    errors(i) = minError;
     
-    fallsI = find(maxR-fR > threshold);
-    fallsR = union(fallsR,fallsI);
-    
-    fallsI = find(maxG-fG > threshold);
-    fallsG = union(fallsG,fallsI);
-    
-    fallsI = find(maxB-fB > threshold);
-    fallsB = union(fallsB,fallsI);
-    
-    risesI = find(fR - minR > threshold);
-    risesR = union(risesR,risesI);
-    
-    risesI = find(fG - minG > threshold);
-    risesG = union(risesG,risesI);
-    
-    risesI = find(fB - minB > threshold);
-    risesB = union(risesB,risesI);
-
-    ir = find(fR < minR);
-    minR(ir) = fR(ir); 
-    ig = find(fG < minG);
-    minG(ig) = fG(ig); 
-    ib = find(fB < minB);
-    minB(ib) = fB(ib); 
-    
-    ir = find(fR > maxR);
-    maxR(ir) = fR(ir); 
-    ig = find(fG > maxG);
-    maxG(ig) = fG(ig); 
-    ib = find(fB > maxB);
-    maxB(ib) = fB(ib); 
 end
-allIndex = 1:imgSize(1)*imgSize(2);
-temp1 = union(risesR, fallsR);
-temp2 = union(risesG, fallsG);
-temp3 = union(risesB, fallsB);
+elapsedTime = toc(timer);
+fprintf('elapsed time for finding s and p: %d seconds.\n',elapsedTime);
+fprintf('min s: %d and min p: %d.\n',minS, minP);
+timer = tic;
 
-temp4 = union(temp1,temp2);
-temp5 = union(temp3,temp4);
+vw = VideoWriter('palmtrees_loop.mp4','MPEG-4');
+open(vw);
 
-unchangingI = setdiff(allIndex,temp5);
+integerMultiple = floor((totalFrames-minS)/minP);
+label = imresize(labelsmooth,2);
+loopableI = find(label == 2);
+ 
+for t = minS:minP*integerMultiple
+    phi_t = minS + mod((t-minS),minP);
+    frame = read(v,t);
+    frame_phi = read(v,phi_t);
+    
+    frameR = frame(:,:,1);
+    frameG = frame(:,:,2);
+    frameB = frame(:,:,3);
+    
+    frame_phiR = frame_phi(:,:,1);
+    frame_phiG = frame_phi(:,:,2);
+    frame_phiB = frame_phi(:,:,3);
+    
+    frameR(loopableI) = frame_phiR(loopableI);
+    frameG(loopableI) = frame_phiG(loopableI);
+    frameB(loopableI) = frame_phiB(loopableI);
+    
+    finalFrame = cat(3,frameR,frameG,frameB);
+    
+    writeVideo(vw,finalFrame);
+end
 
-temp1 = setxor(risesR, fallsR);
-temp2 = setxor(risesG, fallsG);
-temp3 = setxor(risesB, fallsB);
+close(vw);
 
-temp4 = union(temp1,temp2);
-unloopableI = union(temp3,temp4);
-loopableI = setdiff(allIndex,unchangingI);
-loopableI = setdiff(loopableI,unloopableI);
-
-label = zeros([imgSize(1) imgSize(2)]);
-label(loopableI) = 2;
-label(unchangingI) = 1;
-
-labelsmooth = round(imgaussfilt(label,2));
-img = labelsmooth/2;
-
-imshow(img);
+elapsedTime = toc(timer);
+fprintf('elapsed time for creating video loop: %d seconds.\n',elapsedTime);
