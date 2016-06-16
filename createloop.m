@@ -1,8 +1,8 @@
 clear all;
 
- load('palmtrees.mat')
+ load('gibbonfalls.mat')
 % %% Initial Setting 
- v = VideoReader('palmtrees.mp4');
+ v = VideoReader('gibbonfalls.mp4');
  totalFrames = floor(v.Duration * v.FrameRate);
 % %% Parameter
 jump = 4;
@@ -18,7 +18,7 @@ p_candidates = 30:-1:10;
 
 timer = tic;
 
-minError = 1000;
+minError = inf;
 minP = 1;
 minS = 1;
 errors = [];
@@ -36,7 +36,9 @@ for i=1:length(p_candidates)
         diff2 = abs(frame_p(loopableI)-frame_s(loopableI));
         
         diff = sort(diff1+diff2);
-        error = prctile(diff,90);
+         len = length(diff);
+         len = floor(len*4/5); % get only 80 percent of errors
+         error = sum(diff(1:len,:));
         
         if error < minError
             minError = error;
@@ -52,15 +54,18 @@ fprintf('elapsed time for finding s and p: %d seconds.\n',elapsedTime);
 fprintf('min s: %d and min p: %d.\n',minS, minP);
 timer = tic;
 
-vw = VideoWriter('palmtrees_loop.mp4','MPEG-4');
+vw = VideoWriter('gibbonfalls_loop2.mp4','MPEG-4');
 open(vw);
 
-integerMultiple = floor((totalFrames-minS)/minP);
+sx = 1+jump*(minS-1);
+px = minP*jump;
+
+integerMultiple = floor((totalFrames-sx+1)/(px+1));
 label = imresize(labelsmooth,2);
 loopableI = find(label == 2);
- 
-for t = minS:minP*integerMultiple
-    phi_t = minS + mod((t-minS),minP);
+
+for t = sx:(sx+(px+1)*integerMultiple-1)
+    phi_t = sx + mod((t-sx),(px+1));
     frame = read(v,t);
     frame_phi = read(v,phi_t);
     
