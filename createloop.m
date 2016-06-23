@@ -1,8 +1,12 @@
 clear all;
+loopableRegionFilename = 'gibbonfalls.mat';
+inputVideoFilename = 'gibbonfalls.mp4';
 
- load('gibbonfalls.mat')
+outputVideoFilename = 'gibbonfalls_loop.mp4';
+
+ load(loopableRegionFilename)
 % %% Initial Setting 
- v = VideoReader('gibbonfalls.mp4');
+ v = VideoReader(inputVideoFilename);
  totalFrames = floor(v.Duration * v.FrameRate);
 % %% Parameter
 jump = 4;
@@ -54,14 +58,14 @@ fprintf('elapsed time for finding s and p: %d seconds.\n',elapsedTime);
 fprintf('min s: %d and min p: %d.\n',minS, minP);
 timer = tic;
 
-vw = VideoWriter('gibbonfalls_loop2.mp4','MPEG-4');
+vw = VideoWriter(outputVideoFilename,'MPEG-4');
 open(vw);
 
 sx = 1+jump*(minS-1);
 px = minP*jump;
 
 integerMultiple = floor((totalFrames-sx+1)/(px+1));
-label = imresize(labelsmooth,2);
+label = round(imresize(labelsmooth,2));
 loopableI = find(label == 2);
 
 for t = sx:(sx+(px+1)*integerMultiple-1)

@@ -1,7 +1,10 @@
 clear all;
 
+loopableRegionFilename = 'gibbonfalls.mat';
+inputVideoFilename = 'gibbonfalls.mp4';
+
 %% Initial Setting 
-v = VideoReader('gibbonfalls.mp4');
+v = VideoReader(inputVideoFilename);
 totalFrames = floor(v.Duration * v.FrameRate);
 %% Parameter
 jump = 4; threshold = 10;%10/255;
@@ -106,4 +109,4 @@ imshow(img);
 elapsedTime = toc(timer);
 fprintf('elapsed time for finding loopable region: %d seconds.\n',elapsedTime);
 
-save gibbonfalls.mat labelsmooth;
+save(loopableRegionFilename, 'labelsmooth');
